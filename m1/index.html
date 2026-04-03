@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocab Voice Game - M.1</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; margin-top: 30px; background-color: #f4f7f6; }
+        select { font-size: 18px; padding: 10px; border-radius: 5px; margin-bottom: 20px; border: 2px solid #0984e3; max-width: 90%; }
+        
+        #game-area { width: 600px; max-width: 95%; height: 300px; background: white; border: 3px dashed #ccc; border-radius: 15px; margin: 0 auto; box-shadow: 0 4px 8px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; }
+        
+        #top-bar { position: absolute; top: 15px; width: 90%; display: flex; justify-content: space-between; font-size: 20px; font-weight: bold; color: #636e72; }
+        #word-display { font-size: 55px; font-weight: bold; color: #0984e3; margin: 0; padding: 0 20px; word-wrap: break-word; text-align: center; }
+        
+        .btn-group { margin-top: 30px; display: flex; justify-content: center; flex-wrap: wrap; gap: 15px; }
+        button { padding: 12px 20px; font-size: 18px; cursor: pointer; color: white; border: none; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: 0.2s; }
+        
+        .btn-mic { background-color: #00b894; padding: 15px 30px; font-size: 20px; }
+        .btn-mic:hover { background-color: #00cec9; transform: scale(1.05); }
+        .btn-speak { background-color: #0984e3; }
+        .btn-speak:hover { background-color: #74b9ff; }
+        .btn-skip { background-color: #f39c12; }
+        .btn-skip:hover { background-color: #f1c40f; }
+        .btn-restart { background-color: #e17055; }
+        .btn-restart:hover { background-color: #fab1a0; }
+        .btn-submit { background-color: #9b59b6; display: none; } /* ปุ่มส่งคะแนนสำรอง */
+        .btn-submit:hover { background-color: #8e44ad; }
+        
+        #status { margin-top: 20px; font-size: 20px; font-weight: bold; color: #2d3436; height: 30px; }
+        .score-text { color: #e17055; }
+
+        .warning-notice { color: #d32f2f; font-size: 15px; font-weight: bold; margin-bottom: 20px; background: #fff9db; padding: 10px 20px; border-radius: 50px; display: inline-block; border: 1px solid #ffe066; }
+    </style>
+</head>
+<body>
+
+    <h2>🎤 เกมฝึกออกเสียงคำศัพท์ ม.1</h2>
+    
+    <div class="warning-notice">⚠️ กรุณาฝึกออกเสียงครบทุกคำแล้วจะลงชื่อส่งคะแนนได้</div>
+    <br>
+
+    <select id="module-select" onchange="startGame()">
+        <option value="m1">Module 1: School & Introducing</option>
+        <option value="m2">Module 2: Body, Appearance & Things</option>
+        <option value="m3">Module 3: Rooms & Furniture</option>
+        <option value="m4">Module 4: Family & Routines</option>
+        <option value="m5">Module 5: Animals & Pets</option>
+        <option value="m6">Module 6: Weather & Clothes</option>
+        <option value="m7">Module 7: Jobs & Verbs</option>
+        <option value="m8">Module 8: Food & Celebrations</option>
+        <option value="m9">Module 9: Shops & Places</option>
+        <option value="m10">Module 10: Holiday activities</option>
+    </select>
+
+    <div id="game-area">
+        <div id="top-bar">
+            <span>คำที่: <span id="progress">0/0</span></span>
+            <span class="score-text">คะแนน: <span id="score">0</span></span>
+        </div>
+        <div id="word-display">Ready</div>
+    </div>
+
+    <div class="btn-group">
+        <button class="btn-restart" onclick="startGame()">🔄 เริ่มใหม่</button>
+        <button class="btn-speak" onclick="playExample()">🔊 ฟังตัวอย่าง</button>
+        <button class="btn-mic" onclick="startListening()">🎤 กดแล้วพูด</button>
+        <button class="btn-skip" onclick="skipWord()">⏭️ ข้ามคำนี้</button>
+        <button id="btn-submit-score" class="btn-submit" onclick="forceOpenModal()">📝 ส่งคะแนน</button>
+    </div>
+    
+    <p id="status">เลือกระดับชั้นแล้วกดปุ่มเพื่อเริ่มเลย!</p>
+
+    <div id="login-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(5px); z-index: 2000; flex-direction: column; justify-content: center; align-items: center;">
+        <div style="background: white; padding: 30px; border-radius: 15px; width: 85%; max-width: 350px; box-shadow: 0 15px 30px rgba(0,0,0,0.15); border: 2px solid #00b894; text-align: center;">
+            <h2 style="margin-top: 0; color: #00b894;">👋 ลงชื่อส่งคะแนน</h2>
+            <p style="font-size: 14px; color: #636e72; margin-bottom: 20px;">กรุณากรอกข้อมูลเพื่อบันทึกคะแนน</p>
+            <input type="text" id="m_name" placeholder="ชื่อ - นามสกุล" autocomplete="name" style="width: 90%; padding: 12px; margin-bottom: 15px; border: 1px solid #dfe6e9; border-radius: 8px; font-size: 16px; text-align: center; box-sizing: border-box;">
+            <input type="text" id="m_room" placeholder="ชั้น/ห้อง (เช่น ม.1/1)" autocomplete="organization" style="width: 90%; padding: 12px; margin-bottom: 15px; border: 1px solid #dfe6e9; border-radius: 8px; font-size: 16px; text-align: center; box-sizing: border-box;">
+            <input type="text" id="m_id" placeholder="รหัสนักเรียน (5 หลัก)" maxlength="5" autocomplete="username" oninput="this.value = this.value.replace(/[^0-9]/g, '');" style="width: 90%; padding: 12px; margin-bottom: 15px; border: 1px solid #dfe6e9; border-radius: 8px; font-size: 16px; text-align: center; box-sizing: border-box;">
+            <button id="submitBtnModal" onclick="submitToGoogleSheets()" style="width: 100%; padding: 12px; background: #00b894; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer;">🚀 ยืนยันและส่งคะแนน</button>
+            <div id="modal-err" style="color:#d63031; font-size:14px; margin-top:10px; display:none;"></div>
+            <div id="saveStatus" style="font-size: 16px; color: #00b894; margin-top: 15px; font-weight: bold; display: none;"></div>
+            <button id="closeModalBtn" onclick="document.getElementById('login-modal').style.display='none'" style="margin-top: 15px; background: transparent; border: none; color: #636e72; text-decoration: underline; cursor: pointer; font-size: 14px;">ปิดหน้าต่าง</button>
+        </div>
+    </div>
+
+    <script>
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxd_UGE1ZY_1dcB3B7l0Vy8azxhuuFoc_kftJ7QZ1Nc4XIaXGKF9RPs8WxhZ0K5VyVN/exec';
+        let LESSON_NAME = 'ม.1 ฝึกออกเสียงคำศัพท์';
+        let finalScore = 0;
+        let finalMaxScore = 0;
+
+        const vocabData = {
+            m1: ["English", "Information Technology", "Music", "History", "Maths", "Physical Education", "Art", "Science", "Geography", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "sharpener", "notepad", "eraser", "pencil", "atlas", "ruler", "bag", "Nice to meet you.", "How old are you?", "What's your name?", "How are you?", "I'm fine, thanks.", "Not bad.", "See you later.", "Hello!", "Good morning!", "Good afternoon!", "Good evening!", "Good night!", "Goodbye!"],
+            m2: ["eye", "head", "hair", "ear", "moustache", "arm", "leg", "nose", "mouth", "hand", "foot", "short", "tall", "big", "small", "plump", "thin", "long", "beautiful", "ugly", "cap", "guitar", "scarf", "watch", "handbag", "teddy bear", "jeans", "shoes", "bicycle", "gloves", "basketball", "digital camera", "helmet", "skateboard", "trainers", "the UK", "the USA", "Spain", "Russia", "New Zealand", "France", "Japan", "American", "Russian", "British", "New Zealander", "Spanish", "French", "Japanese", "How can I help you?", "I want to buy a souvenir.", "How about this scarf?", "That's a good idea.", "How much is it?", "Here you are."],
+            m3: ["bedroom", "bathroom", "hall", "kitchen", "living room", "garden", "garage", "window", "wardrobe", "pillow", "bed", "lamp", "desk", "bookcase", "books", "carpet", "mirror", "washbasin", "toilet", "mat", "towel", "bath", "stairs", "floor", "sink", "cooker", "cupboard", "fridge", "chairs", "table", "paintings", "armchair", "curtain", "cushion", "sofa", "coffee table", "Here we are.", "Let's go in.", "The living room is very big.", "Let's go upstairs.", "Which is my bedroom?", "It's your favourite colour."],
+            m4: ["grandfather", "grandmother", "father", "mother", "brother", "sister", "cool", "kind", "sweet", "clever", "friendly", "noisy", "funny", "naughty", "caring", "have dinner", "watch a DVD", "have lunch", "get up", "have a cup of tea", "work on the computer", "have breakfast", "go to bed", "do the shopping", "do homework", "go jogging", "go to school", "Look at that girl over there.", "Who is she?", "What's her name?", "How old is she?", "What's she like?"],
+            m5: ["fur", "ear", "beak", "wings", "feathers", "tail", "legs", "reindeer", "penguin", "snowy owl", "seal", "polar bear", "wolf", "dog", "tortoise", "goldfish", "hamster", "cat", "budgie", "rabbit", "What's the matter?", "What's wrong with him?", "How do you know?", "Let's have a look at him.", "dragonfly", "bee", "ladybirds", "butterfly", "fly", "ant", "beetle", "mosquito", "grasshopper", "wasps"],
+            m6: ["Seasons", "Months", "Winter", "Spring", "Autumn", "Summer", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December", "Weather", "wet", "rainy", "cloudy", "windy", "cold", "snowy", "hot", "sunny", "chilly", "foggy", "warm", "Clothes", "T-shirt", "shorts", "blouse", "jacket", "skirt", "socks", "shoes", "trainers", "gloves", "shirt", "suit", "tie", "dress", "scarf", "trousers", "boots", "Holiday activities", "fish", "windsurf", "ski", "play golf", "sunbathe", "read a book", "swim", "Useful phrases", "Are you free this afternoon?", "Let's go shopping.", "I'm busy this afternoon.", "How about going tomorrow?", "Sure, that's a good idea.", "Nothing, really.", "Why don't we go jogging in the park?", "I'm very tired.", "Sounds great!"],
+            m7: ["singer", "scientist", "ballerina", "athlete", "inventor", "nurse", "astronaut", "explorer", "painter", "live", "try", "appear", "manage", "grab", "bury", "travel", "reach", "kill", "decide", "fail", "succeed", "How was your weekend?", "Quite boring.", "What about you?", "Did you like it?", "Who else was with you?"],
+            m8: ["rice", "eggs", "biscuits", "bread", "pineapples", "cherries", "orange", "potatoes", "carrots", "fish", "meat", "tea", "tomatoes", "cheese", "wear traditional costumes", "fly the national flag", "paint their faces", "have a street parade", "wear green dragon costumes", "Takeaway, please.", "Can I take your order?", "I'd like a large cheeseburger, please.", "Would you like anything to drink with that?", "Is that to eat-in or takeaway?", "Here you are.", "An orange juice, please.", "Enjoy your meal.", "Thank you."],
+            m9: ["chemist's", "bookshop", "toy shop", "department store", "greengrocer's", "bakery", "florist's", "newsagent's", "butcher's", "circus", "gallery", "cinema", "concert hall", "zoo", "museum", "theatre", "marine park", "horror", "romance", "comedy", "action", "adventure", "animated", "fantasy", "science fiction", "Excuse me, can you tell me where the cinema is?", "Go down Bath street.", "Turn right.", "Turn left.", "The cinema is on your left.", "It's opposite the fast food restaurant.", "You can't miss it.", "coach", "motorbike", "train", "car", "ship", "bike", "plane"],
+            m10: ["hiking", "windsurfing", "jet skiing", "sunbathing", "white-water rafting", "scuba diving", "swimming", "fishing", "sailing", "go surfing", "make new friends", "walk through the streets", "buy souvenirs", "see treasures", "go on a boat trip", "go punting", "Good morning.", "Why don't you join me for breakfast?", "What are you doing today?", "Why don't you join us?", "I'm going scuba diving.", "I'm sorry, but I can't.", "Sure! Why not?"]
+        };
+
+        let currentModuleWords = [];
+        let wordIndex = 0;
+        let score = 0;
+        let audioCtx;
+        let isGameEnded = false;
+
+        const wordDisplay = document.getElementById('word-display');
+        const statusText = document.getElementById('status');
+        const moduleSelect = document.getElementById('module-select');
+        const scoreDisplay = document.getElementById('score');
+        const progressDisplay = document.getElementById('progress');
+        const btnSubmitScore = document.getElementById('btn-submit-score');
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function playSound(type) {
+            if (!audioCtx) { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+            if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+            
+            if (type === 'success') {
+                const osc = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); 
+                osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); 
+                gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+                osc.start(audioCtx.currentTime);
+                osc.stop(audioCtx.currentTime + 0.5);
+            } else if (type === 'error') {
+                const osc = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, audioCtx.currentTime); 
+                gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+                osc.start(audioCtx.currentTime);
+                osc.stop(audioCtx.currentTime + 0.3);
+            } else if (type === 'finish') {
+                const notes = [
+                    { freq: 523.25, time: 0, dur: 0.15 },    
+                    { freq: 659.25, time: 0.15, dur: 0.15 }, 
+                    { freq: 783.99, time: 0.30, dur: 0.15 }, 
+                    { freq: 1046.50, time: 0.45, dur: 0.8 }  
+                ];
+                notes.forEach(note => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.type = 'square'; 
+                    osc.frequency.setValueAtTime(note.freq, audioCtx.currentTime + note.time);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime + note.time);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + note.time + note.dur);
+                    osc.start(audioCtx.currentTime + note.time);
+                    osc.stop(audioCtx.currentTime + note.time + note.dur);
+                });
+            }
+        }
+
+        function playExample() {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(currentModuleWords[wordIndex]);
+                utterance.lang = 'en-US';
+                utterance.rate = 0.85; 
+                window.speechSynthesis.speak(utterance);
+            } else {
+                alert("เบราว์เซอร์ไม่รองรับระบบอ่านออกเสียงครับ");
+            }
+        }
+
+        function startGame() {
+            const selectedModule = moduleSelect.value;
+            const moduleText = moduleSelect.options[moduleSelect.selectedIndex].text;
+            LESSON_NAME = 'ฝึกพูด: ' + moduleText; 
+            
+            currentModuleWords = shuffleArray([...vocabData[selectedModule]]);
+            wordIndex = 0;
+            score = 0;
+            isGameEnded = false;
+            scoreDisplay.innerText = score;
+            btnSubmitScore.style.display = 'none'; // ซ่อนปุ่มตอนเริ่มใหม่
+            showWord();
+        }
+
+        function showWord() {
+            if (wordIndex >= currentModuleWords.length) {
+                if (!isGameEnded) {
+                    playSound('finish');
+                    isGameEnded = true;
+                    
+                    // โชว์ปุ่มส่งคะแนนเผื่อ popup ไม่เด้ง
+                    btnSubmitScore.style.display = 'inline-block';
+
+                    // หน่วงเวลาให้เด็กเห็นพลุฉลองก่อนเด้งหน้าต่างส่งคะแนน (1.5 วินาที)
+                    setTimeout(() => {
+                        openSubmitModal(score, currentModuleWords.length * 10);
+                    }, 1500);
+                }
+                wordDisplay.innerText = "🎉 จบเกม!";
+                wordDisplay.style.fontSize = "55px";
+                statusText.innerText = "เก่งมาก! ทำครบทุกคำในบทนี้แล้ว";
+                statusText.style.color = "#00b894";
+                progressDisplay.innerText = currentModuleWords.length + "/" + currentModuleWords.length;
+                return;
+            }
+
+            if(currentModuleWords[wordIndex].length > 15) {
+                wordDisplay.style.fontSize = "40px";
+            } else {
+                wordDisplay.style.fontSize = "55px";
+            }
+
+            wordDisplay.innerText = currentModuleWords[wordIndex];
+            progressDisplay.innerText = (wordIndex + 1) + "/" + currentModuleWords.length;
+            statusText.innerText = "กดไมค์แล้วพูดคำว่า: " + currentModuleWords[wordIndex];
+            statusText.style.color = "#2d3436";
+        }
+
+        function skipWord() {
+            if (wordIndex >= currentModuleWords.length) return;
+            wordIndex++;
+            showWord();
+        }
+
+        function cleanWord(word) {
+            return word.toLowerCase()
+                       .replace(/'/g, '') 
+                       .replace(/-/g, ' ') 
+                       .replace(/[^a-z\s]/g, '') 
+                       .replace(/\s+/g, ' ') 
+                       .trim();
+        }
+
+        function startListening() {
+            if (wordIndex >= currentModuleWords.length) return;
+
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                statusText.innerText = "❌ บราวเซอร์ไม่รองรับ แนะนำให้ใช้ Google Chrome ครับ";
+                return;
+            }
+
+            if (!audioCtx) { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+            if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'en-US';
+
+            recognition.onstart = function() {
+                statusText.innerText = "🎧 กำลังฟัง... พูดเลย!";
+                statusText.style.color = "#0984e3";
+            };
+
+            recognition.onresult = function(event) {
+                const spokenWord = cleanWord(event.results[0][0].transcript);
+                const targetWord = cleanWord(currentModuleWords[wordIndex]);
+                
+                if (spokenWord === targetWord) {
+                    playSound('success');
+                    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                    
+                    statusText.innerText = "🎉 ยอดเยี่ยม! เปลี่ยนคำต่อไป...";
+                    statusText.style.color = "#00b894";
+                    
+                    score += 10;
+                    scoreDisplay.innerText = score;
+                    wordIndex++;
+
+                    setTimeout(showWord, 2000);
+                } else {
+                    playSound('error');
+                    statusText.innerText = "❌ ได้ยินว่า: " + event.results[0][0].transcript + " (ลองฟังตัวอย่างแล้วพูดใหม่นะ)";
+                    statusText.style.color = "#d63031";
+                }
+            };
+
+            recognition.onerror = function(event) {
+                if (event.error === 'no-speech') {
+                    statusText.innerText = "⚠️ ไม่ได้ยินเสียงครับ กดปุ่มพูดใหม่อีกครั้งนะ";
+                } else {
+                    statusText.innerText = "⚠️ มีข้อผิดพลาดของไมค์: " + event.error;
+                }
+                statusText.style.color = "#e17055";
+            };
+
+            recognition.onend = function() {
+                if (statusText.innerText.includes("กำลังฟัง")) {
+                    statusText.innerText = "🔇 ไมค์ตัดไปแล้วครับ (กดปุ่มไมค์พูดใหม่ได้เลย)";
+                    statusText.style.color = "#e17055";
+                }
+            };
+
+            recognition.start();
+        }
+
+        // ==========================================
+        // ระบบส่งคะแนน Google Sheets
+        // ==========================================
+        function forceOpenModal() {
+            openSubmitModal(score, currentModuleWords.length * 10);
+        }
+
+        function openSubmitModal(s, maxS) {
+            finalScore = s;
+            finalMaxScore = maxS;
+            document.getElementById('login-modal').style.display = 'flex';
+        }
+
+        async function submitToGoogleSheets() {
+            let n = document.getElementById('m_name').value.trim();
+            let r = document.getElementById('m_room').value.trim();
+            let i = document.getElementById('m_id').value.trim();
+            let err = document.getElementById('modal-err');
+            let stat = document.getElementById('saveStatus');
+            let btn = document.getElementById('submitBtnModal');
+
+            if(!n || !r || i.length !== 5) {
+                err.innerText = "กรุณากรอกข้อมูลให้ครบ และรหัสต้องมี 5 หลัก";
+                err.style.display = 'block';
+                return;
+            }
+            err.style.display = 'none';
+
+            localStorage.setItem('studentName', n);
+            localStorage.setItem('studentRoom', r);
+            localStorage.setItem('studentId', i);
+
+            btn.style.display = 'none';
+            stat.style.display = 'block';
+            stat.innerText = "⏳ กำลังบันทึกคะแนน...";
+            stat.style.color = "#00b894";
+
+            const payload = { 
+                name: n, 
+                room: r, 
+                studentId: i, 
+                lesson: LESSON_NAME, 
+                score: finalScore,
+                maxScore: finalMaxScore,
+                _t: new Date().getTime() 
+            };
+
+            try {
+                await fetch(SCRIPT_URL, {
+                    method: 'POST', mode: 'no-cors', cache: 'no-store',
+                    body: JSON.stringify(payload),
+                    headers: { "Content-Type": "text/plain;charset=utf-8" } 
+                });
+
+                stat.innerText = '✅ บันทึกคะแนนลงระบบเรียบร้อย!';
+                stat.style.color = '#00b894';
+                
+                setTimeout(() => {
+                    document.getElementById('login-modal').style.display = 'none';
+                }, 2000);
+
+            } catch(error) {
+                stat.innerText = '❌ ส่งข้อมูลไม่สำเร็จ (ลองกดส่งใหม่)';
+                stat.style.color = '#d32f2f';
+                btn.style.display = 'inline-block';
+            }
+        }
+
+        window.onload = function() {
+            if(localStorage.getItem('studentName')) {
+                document.getElementById('m_name').value = localStorage.getItem('studentName');
+                document.getElementById('m_room').value = localStorage.getItem('studentRoom');
+                document.getElementById('m_id').value = localStorage.getItem('studentId');
+            }
+            startGame();
+        };
+
+    </script>
+</body>
+</html>
